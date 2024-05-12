@@ -19,7 +19,7 @@ async function handleRequest(request) {
 	const { pathname } = new URL(request.url);
 	if (pathname.startsWith('/users')) {
 		if (request.method === 'GET') {
-			return getUsers();
+			return getUsers(pathname);
 		} else if (request.method === 'POST') {
 			return createUser(request);
 		} else if (request.method === 'PUT') {
@@ -35,10 +35,24 @@ async function handleRequest(request) {
 	}
 }
 
-async function getUsers() {
-	return new Response(JSON.stringify(users), {
-		headers: { 'content-type': 'application/json' },
-	});
+async function getUsers(pathname) {
+	if (pathname === '/users') {
+		return new Response(JSON.stringify(users), {
+			headers: { 'content-type': 'application/json' },
+		});
+	}
+	try {
+		const id = pathname.split('/')[2];
+		const user = users.find((user) => user.id === Number(id));
+		if (!user) {
+			return new Response('User not found', { status: 404 });
+		}
+		return new Response(JSON.stringify(user), {
+			headers: { 'content-type': 'application/json' },
+		});
+	} catch (error) {
+		return new Response('Bad request', { status: 400 });
+	}
 }
 
 async function createUser(request) {
@@ -63,6 +77,12 @@ async function updateUser(request) {
 	if (!user) {
 		return new Response('User not found', { status: 404 });
 	}
+	if (+data.id <= 3) {
+		return new Response('Cannot update default users', { status: 403 });
+	}
+	if (!data.name || !data.email) {
+		return new Response('Name and email are required', { status: 400 });
+	}
 	user.name = data.name;
 	user.email = data.email;
 	return new Response(JSON.stringify(user), {
@@ -72,6 +92,12 @@ async function updateUser(request) {
 
 async function deleteUser(pathname) {
 	const id = pathname.split('/')[2];
+	if (!id) {
+		return new Response('Bad request', { status: 400 });
+	}
+	if (+id <= 3) {
+		return new Response('Cannot delete default users', { status: 403 });
+	}
 	const index = users.findIndex((user) => user.id === Number(id));
 	if (index === -1) {
 		return new Response('User not found', { status: 404 });
